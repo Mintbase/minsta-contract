@@ -1,25 +1,15 @@
-# Hello NEAR Contract
+# Minsta Proxy Minter NEAR Contract
 
-The smart contract exposes two methods to enable storing and retrieving a greeting in the NEAR network.
+This smart contract on the NEAR network is designed to handle minting functionality through proxy minters. It provides a way to mint Non-Fungible Tokens (NFTs) through specified minters while keeping track of the latest minter for each NFT contract.
 
-```ts
-@NearBindgen({})
-class HelloNear {
-  greeting: string = "Hello";
+## Contract Structure
 
-  @view // This method is read-only and can be called for free
-  get_greeting(): string {
-    return this.greeting;
-  }
+### MinstaProxyMinter Class
 
-  @call // This method changes the state, for which it cost gas
-  set_greeting({ greeting }: { greeting: string }): void {
-    // Record a log permanently to the blockchain!
-    near.log(`Saving greeting ${greeting}`);
-    this.greeting = greeting;
-  }
-}
-```
+- `latest_minters`: Lookup map that keeps track of the latest minter for each NFT contract ID.
+- `mint`: A method that takes metadata and NFT contract ID to mint NFTs, payable and callable.
+- `cb_mint`: A private callback method for handling successful minting.
+- `get_latest_minter`: A view method to get the latest minter for a given NFT contract ID.
 
 <br />
 
@@ -31,13 +21,13 @@ class HelloNear {
 <br />
 
 ## 1. Build and Deploy the Contract
-You can automatically compile and deploy the contract in the NEAR testnet by running:
+Compile and deploy the contract in the NEAR testnet by running:
 
 ```bash
 npm run deploy
 ```
 
-Once finished, check the `neardev/dev-account` file to find the address in which the contract was deployed:
+Check the `neardev/dev-account` file to find the address in which the contract was deployed:
 
 ```bash
 cat ./neardev/dev-account
@@ -46,34 +36,29 @@ cat ./neardev/dev-account
 
 <br />
 
-## 2. Retrieve the Greeting
-
-`get_greeting` is a read-only method (aka `view` method).
-
-`View` methods can be called for **free** by anyone, even people **without a NEAR account**!
+## 2. Minting an NFT
+To mint an NFT, you will need to call the `mint` method. Make sure to specify the metadata and NFT contract ID:
 
 ```bash
-# Use near-cli to get the greeting
-near view <dev-account> get_greeting
+# Use near-cli to mint an NFT
+near call <dev-account> mint '{"metadata":"<metadata>","nft_contract_id":"<nft_contract_id>"}' --accountId <dev-account> --amount <amount>
 ```
 
 <br />
 
-## 3. Store a New Greeting
-`set_greeting` changes the contract's state, for which it is a `call` method.
-
-`Call` methods can only be invoked using a NEAR account, since the account needs to pay GAS for the transaction.
+## 3. Retrieve the Latest Minter
+You can get the latest minter for a given NFT contract ID:
 
 ```bash
-# Use near-cli to set a new greeting
-near call <dev-account> set_greeting '{"greeting":"howdy"}' --accountId <dev-account>
+# Use near-cli to get the latest minter
+near view <dev-account> get_latest_minter '{"nft_contract_id":"<nft_contract_id>"}'
 ```
 
-**Tip:** If you would like to call `set_greeting` using your own account, first login into NEAR using:
+<br />
 
-```bash
-# Use near-cli to login your NEAR account
-near login
-```
+## Note
+Please replace `<dev-account>`, `<metadata>`, `<nft_contract_id>`, and `<amount>` with appropriate values as needed.
 
-and then use the logged account to sign the transaction: `--accountId <your-account>`.
+Ensure that the account calling the `mint` method has the necessary funds to cover the associated costs, as this is a payable function.
+
+---
