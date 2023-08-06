@@ -38,7 +38,8 @@ class MinstaProxyMinter {
     nft_contract_id: AccountId;
   }) {
     let prev_minter_id = this.latest_minters.get(nft_contract_id);
-    const minter_id = near.signerAccountId();
+    const minter_id = near.predecessorAccountId() // TODO: near.signerAccountId();
+
 
     if (!prev_minter_id) prev_minter_id = minter_id;
 

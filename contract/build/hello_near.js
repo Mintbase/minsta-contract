@@ -473,14 +473,6 @@ var PromiseError;
 const U64_MAX = 2n ** 64n - 1n;
 const EVICTED_REGISTER = U64_MAX - 1n;
 /**
- * Returns the account ID of the account that signed the transaction.
- * Can only be called in a call or initialize function.
- */
-function signerAccountId() {
-  env.signer_account_id(0);
-  return str(env.read_register(0));
-}
-/**
  * Returns the account ID of the account that called the function.
  * Can only be called in a call or initialize function.
  */
@@ -1404,7 +1396,8 @@ let MinstaProxyMinter = (_dec = NearBindgen({
     nft_contract_id
   }) {
     let prev_minter_id = this.latest_minters.get(nft_contract_id);
-    const minter_id = signerAccountId();
+    const minter_id = predecessorAccountId(); // TODO: near.signerAccountId();
+
     if (!prev_minter_id) prev_minter_id = minter_id;
     try {
       const parsed_metadata = JSON.parse(metadata);
