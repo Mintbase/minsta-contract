@@ -23,11 +23,7 @@ interface Metadata {
 
 @NearBindgen({ requireInit: false })
 class MinstaProxyMinter {
-  latest_minters: LookupMap<AccountId>;
-
-  constructor() {
-    this.latest_minters = new LookupMap("latest-minters-map");
-  }
+  constructor() {}
 
   @call({ payableFunction: true })
   mint({
@@ -37,11 +33,7 @@ class MinstaProxyMinter {
     metadata: string;
     nft_contract_id: AccountId;
   }) {
-    let prev_minter_id = this.latest_minters.get(nft_contract_id);
-    const minter_id = near.predecessorAccountId() // TODO: near.signerAccountId();
-
-
-    if (!prev_minter_id) prev_minter_id = minter_id;
+    const minter_id = near.predecessorAccountId(); // TODO: near.signerAccountId();
 
     try {
       const parsed_metadata: Metadata = JSON.parse(metadata);
@@ -50,7 +42,7 @@ class MinstaProxyMinter {
         .functionCall(
           "nft_batch_mint",
           JSON.stringify({
-            owner_id: prev_minter_id,
+            owner_id: minter_id,
             metadata: parsed_metadata,
             num_to_mint: 1,
             royalty_args: {
@@ -67,10 +59,7 @@ class MinstaProxyMinter {
         .then(
           NearPromise.new(near.currentAccountId()).functionCall(
             "cb_mint",
-            JSON.stringify({
-              latest_minter_id: minter_id,
-              nft_contract_id: nft_contract_id,
-            }),
+            JSON.stringify({}),
             BigInt("0"),
             BigInt("50000000000000")
           )
@@ -83,23 +72,11 @@ class MinstaProxyMinter {
   }
 
   @call({ privateFunction: true })
-  cb_mint({
-    latest_minter_id,
-    nft_contract_id,
-  }: {
-    latest_minter_id: AccountId;
-    nft_contract_id: AccountId;
-  }) {
+  cb_mint() {
     if (near.promiseResultsCount() == BigInt(1)) {
-      this.latest_minters.set(nft_contract_id, latest_minter_id);
       return true;
     } else {
       return false;
     }
-  }
-
-  @view({})
-  get_latest_minter({ nft_contract_id }: { nft_contract_id: string }) {
-    return this.latest_minters.get(nft_contract_id);
   }
 }
