@@ -44,28 +44,6 @@ function assert(expression, message) {
     throw new Error("assertion failed: " + message);
   }
 }
-function getValueWithOptions(value, options = {
-  deserializer: deserialize
-}) {
-  if (value === null) {
-    return options?.defaultValue ?? null;
-  }
-  const deserialized = deserialize(value);
-  if (deserialized === undefined || deserialized === null) {
-    return options?.defaultValue ?? null;
-  }
-  if (options?.reconstructor) {
-    return options.reconstructor(deserialized);
-  }
-  return deserialized;
-}
-function serializeValueWithOptions(value, {
-  serializer
-} = {
-  serializer: serialize
-}) {
-  return serializer(value);
-}
 function serialize(valueToSerialize) {
   return encode(JSON.stringify(valueToSerialize, function (key, value) {
     if (typeof value === "bigint") {
@@ -507,28 +485,6 @@ function storageReadRaw(key) {
   return env.read_register(0);
 }
 /**
- * Checks for the existance of a value under the provided key in NEAR storage.
- *
- * @param key - The key to check for in storage.
- */
-function storageHasKeyRaw(key) {
-  return env.storage_has_key(key) === 1n;
-}
-/**
- * Checks for the existance of a value under the provided utf-8 string key in NEAR storage.
- *
- * @param key - The utf-8 string key to check for in storage.
- */
-function storageHasKey(key) {
-  return storageHasKeyRaw(encode(key));
-}
-/**
- * Get the last written or removed value from NEAR storage.
- */
-function storageGetEvictedRaw() {
-  return env.read_register(EVICTED_REGISTER);
-}
-/**
  * Writes the provided bytes to NEAR storage under the provided key.
  *
  * @param key - The key under which to store the value.
@@ -536,22 +492,6 @@ function storageGetEvictedRaw() {
  */
 function storageWriteRaw(key, value) {
   return env.storage_write(key, value, EVICTED_REGISTER) === 1n;
-}
-/**
- * Removes the value of the provided key from NEAR storage.
- *
- * @param key - The key to be removed.
- */
-function storageRemoveRaw(key) {
-  return env.storage_remove(key, EVICTED_REGISTER) === 1n;
-}
-/**
- * Removes the value of the provided utf-8 string key from NEAR storage.
- *
- * @param key - The utf-8 string key to be removed.
- */
-function storageRemove(key) {
-  return storageRemoveRaw(encode(key));
 }
 /**
  * Returns the arguments passed to the current smart contract call.
@@ -733,106 +673,6 @@ function promiseReturn(promiseIndex) {
   env.promise_return(promiseIndex);
 }
 
-/**
- * A lookup map that stores data in NEAR storage.
- */
-class LookupMap {
-  /**
-   * @param keyPrefix - The byte prefix to use when storing elements inside this collection.
-   */
-  constructor(keyPrefix) {
-    this.keyPrefix = keyPrefix;
-  }
-  /**
-   * Checks whether the collection contains the value.
-   *
-   * @param key - The value for which to check the presence.
-   */
-  containsKey(key) {
-    const storageKey = this.keyPrefix + key;
-    return storageHasKey(storageKey);
-  }
-  /**
-   * Get the data stored at the provided key.
-   *
-   * @param key - The key at which to look for the data.
-   * @param options - Options for retrieving the data.
-   */
-  get(key, options) {
-    const storageKey = this.keyPrefix + key;
-    const value = storageReadRaw(encode(storageKey));
-    return getValueWithOptions(value, options);
-  }
-  /**
-   * Removes and retrieves the element with the provided key.
-   *
-   * @param key - The key at which to remove data.
-   * @param options - Options for retrieving the data.
-   */
-  remove(key, options) {
-    const storageKey = this.keyPrefix + key;
-    if (!storageRemove(storageKey)) {
-      return options?.defaultValue ?? null;
-    }
-    const value = storageGetEvictedRaw();
-    return getValueWithOptions(value, options);
-  }
-  /**
-   * Store a new value at the provided key.
-   *
-   * @param key - The key at which to store in the collection.
-   * @param newValue - The value to store in the collection.
-   * @param options - Options for retrieving and storing the data.
-   */
-  set(key, newValue, options) {
-    const storageKey = this.keyPrefix + key;
-    const storageValue = serializeValueWithOptions(newValue, options);
-    if (!storageWriteRaw(encode(storageKey), storageValue)) {
-      return options?.defaultValue ?? null;
-    }
-    const value = storageGetEvictedRaw();
-    return getValueWithOptions(value, options);
-  }
-  /**
-   * Extends the current collection with the passed in array of key-value pairs.
-   *
-   * @param keyValuePairs - The key-value pairs to extend the collection with.
-   * @param options - Options for storing the data.
-   */
-  extend(keyValuePairs, options) {
-    for (const [key, value] of keyValuePairs) {
-      this.set(key, value, options);
-    }
-  }
-  /**
-   * Serialize the collection.
-   *
-   * @param options - Options for storing the data.
-   */
-  serialize(options) {
-    return serializeValueWithOptions(this, options);
-  }
-  /**
-   * Converts the deserialized data from storage to a JavaScript instance of the collection.
-   *
-   * @param data - The deserialized data to create an instance from.
-   */
-  static reconstruct(data) {
-    return new LookupMap(data.keyPrefix);
-  }
-}
-
-/**
- * Tells the SDK to expose this function as a view function.
- *
- * @param _empty - An empty object.
- */
-function view(_empty) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function (_target, _key, _descriptor
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  ) {};
-}
 function call({
   privateFunction = false,
   payableFunction = false
@@ -1380,29 +1220,25 @@ class NearPromise {
   }
 }
 
-var _dec, _dec2, _dec3, _dec4, _class, _class2;
+var _dec, _dec2, _dec3, _class, _class2;
 let MinstaProxyMinter = (_dec = NearBindgen({
   requireInit: false
 }), _dec2 = call({
   payableFunction: true
 }), _dec3 = call({
   privateFunction: true
-}), _dec4 = view(), _dec(_class = (_class2 = class MinstaProxyMinter {
-  constructor() {
-    this.latest_minters = new LookupMap("latest-minters-map");
-  }
+}), _dec(_class = (_class2 = class MinstaProxyMinter {
+  constructor() {}
   mint({
     metadata,
     nft_contract_id
   }) {
-    let prev_minter_id = this.latest_minters.get(nft_contract_id);
     const minter_id = predecessorAccountId(); // TODO: near.signerAccountId();
 
-    if (!prev_minter_id) prev_minter_id = minter_id;
     try {
       const parsed_metadata = JSON.parse(metadata);
       const promise = NearPromise.new(nft_contract_id).functionCall("nft_batch_mint", JSON.stringify({
-        owner_id: prev_minter_id,
+        owner_id: minter_id,
         metadata: parsed_metadata,
         num_to_mint: 1,
         royalty_args: {
@@ -1412,45 +1248,20 @@ let MinstaProxyMinter = (_dec = NearBindgen({
           percentage: 1000
         },
         split_owners: null
-      }), attachedDeposit(), BigInt("100000000000000")).then(NearPromise.new(currentAccountId()).functionCall("cb_mint", JSON.stringify({
-        latest_minter_id: minter_id,
-        nft_contract_id: nft_contract_id
-      }), BigInt("0"), BigInt("50000000000000")));
+      }), attachedDeposit(), BigInt("100000000000000")).then(NearPromise.new(currentAccountId()).functionCall("cb_mint", JSON.stringify({}), BigInt("0"), BigInt("50000000000000")));
       return promise.asReturn();
     } catch (error) {
       return false;
     }
   }
-  cb_mint({
-    latest_minter_id,
-    nft_contract_id
-  }) {
+  cb_mint() {
     if (promiseResultsCount() == BigInt(1)) {
-      this.latest_minters.set(nft_contract_id, latest_minter_id);
       return true;
     } else {
       return false;
     }
   }
-  get_latest_minter({
-    nft_contract_id
-  }) {
-    return this.latest_minters.get(nft_contract_id);
-  }
-}, (_applyDecoratedDescriptor(_class2.prototype, "mint", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "mint"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "cb_mint", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "cb_mint"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_latest_minter", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "get_latest_minter"), _class2.prototype)), _class2)) || _class);
-function get_latest_minter() {
-  const _state = MinstaProxyMinter._getState();
-  if (!_state && MinstaProxyMinter._requireInit()) {
-    throw new Error("Contract must be initialized");
-  }
-  const _contract = MinstaProxyMinter._create();
-  if (_state) {
-    MinstaProxyMinter._reconstruct(_contract, _state);
-  }
-  const _args = MinstaProxyMinter._getArgs();
-  const _result = _contract.get_latest_minter(_args);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(MinstaProxyMinter._serialize(_result, true));
-}
+}, (_applyDecoratedDescriptor(_class2.prototype, "mint", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "mint"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "cb_mint", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "cb_mint"), _class2.prototype)), _class2)) || _class);
 function cb_mint() {
   const _state = MinstaProxyMinter._getState();
   if (!_state && MinstaProxyMinter._requireInit()) {
@@ -1480,5 +1291,5 @@ function mint() {
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(MinstaProxyMinter._serialize(_result, true));
 }
 
-export { cb_mint, get_latest_minter, mint };
+export { cb_mint, mint };
 //# sourceMappingURL=hello_near.js.map
